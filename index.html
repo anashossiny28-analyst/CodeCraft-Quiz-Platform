@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f2342">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Code Craft Quiz Platform — online exams, results and rankings for Beshoy Ramy Academy.">
+  <title>Code Craft — Quiz Platform</title>
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f2342'/%3E%3Cpath d='M26 22l-10 10 10 10M38 22l10 10-10 10' fill='none' stroke='%23ff7a1a' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<!--
+  HOW THIS FILE WORKS
+  index.html is only the SHELL. js/main.js shows ONE "view" at a time
+  (splash, auth, student, staff) and fills the empty <section class="screen">
+  containers with content from the other modules.
+
+  Conventions used by the JavaScript:
+    [hidden]                    the only way a view or screen is shown/hidden
+    data-nav="home"             a button that opens screen #screen-home
+    data-show-panel="register"  a button that switches the sign-in panel
+    data-icon="bell"            filled in with the SVG icon by main.js
+    data-options="grades"       <select> filled from GRADES / SUBJECTS in firebase-config.js
+    body.exam-mode              set while a student is taking an exam (hides navigation)
+-->
+<body class="is-loading">
+
+  <noscript>
+    <p class="noscript">Code Craft needs JavaScript to run. Please turn JavaScript on and reload the page.</p>
+  </noscript>
+
+  <!-- Screen-reader announcements (screen changes, saved, errors) -->
+  <div id="sr-announcer" class="sr-only" role="status" aria-live="polite"></div>
+
+  <!-- ==========================================================================
+       LOADING — visible until Firebase tells us whether someone is signed in
+       ========================================================================== -->
+  <div id="app-loading" class="app-loading" role="status" aria-live="polite">
+    <span class="app-loading-mark" aria-hidden="true">&lt;/&gt;</span>
+    <p class="app-loading-text">Loading Code Craft</p>
+  </div>
+
+  <!-- ==========================================================================
+       1. SPLASH — lamp, pull cord, and Eng. Beshoy Ramy
+       Pulling the cord (drag it down, or press Enter / Space on it) lights the
+       lamp and opens the log-in view.
+       ========================================================================== -->
+  <section id="view-splash" class="view view-splash" aria-labelledby="splash-name" hidden>
+    <p class="splash-code-tag" aria-hidden="true">&lt;/codecraft&gt;</p>
+
+    <div class="splash-scene">
+
+      <div class="splash-lamp" id="splash-lamp">
+        <svg class="lamp-svg" viewBox="0 0 140 240" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="lamp-beam-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop class="beam-stop-near" offset="0"></stop>
+              <stop class="beam-stop-far" offset="1"></stop>
+            </linearGradient>
+          </defs>
+          <polygon class="lamp-beam" points="58,154 82,154 134,240 6,240" fill="url(#lamp-beam-gradient)"></polygon>
+          <line class="lamp-wire" x1="70" y1="0" x2="70" y2="94"></line>
+          <path class="lamp-shade" d="M26 134 C26 108 45 94 70 94 C95 94 114 108 114 134 Z"></path>
+          <rect class="lamp-rim" x="22" y="132" width="96" height="7" rx="3.5"></rect>
+          <circle class="lamp-bulb" cx="70" cy="150" r="13"></circle>
+        </svg>
+
+        <div class="lamp-cord" id="lamp-cord">
+          <span class="lamp-cord-line" aria-hidden="true"></span>
+          <button type="button" class="lamp-cord-handle" id="lamp-cord-handle"
+                  aria-label="Pull the cord to continue to log in">
+            <span class="lamp-cord-bead" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="splash-text">
+        <p class="splash-brand">
+          <span class="splash-brand-name">Code Craft</span>
+          <span class="splash-brand-sub">Quiz Platform</span>
+        </p>
+        <p class="splash-hint" id="splash-hint">Pull the cord to log in</p>
+      </div>
+
+      <figure class="splash-profile">
+        <img class="splash-photo" src="assets/img/beshoy-suit.jpg" alt="Eng. Beshoy Ramy"
+             width="520" height="694" fetchpriority="high" decoding="async">
+        <figcaption class="splash-caption">
+          <h1 class="splash-name" id="splash-name">Eng. Beshoy Ramy</h1>
+          <p class="splash-role">Senior Software Engineer</p>
+          <p class="splash-tagline">Elevating learners from knowing the syntax to thinking like an engineer</p>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       2. AUTH — one log-in for students, teachers, secretaries and admins
+       Panels: login, register, pending (shown after a student registers)
+       ========================================================================== -->
+  <section id="view-auth" class="view view-auth" hidden>
+    <div class="auth-wrap">
+
+      <header class="auth-brand">
+        <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+        <span class="brand-name">Code Craft</span>
+        <span class="brand-sub">Quiz Platform</span>
+      </header>
+
+      <main class="auth-card" id="auth-main">
+
+        <!-- LOGIN -->
+        <div class="auth-panel" id="panel-login" data-panel="login">
+          <h1 class="auth-title">Welcome Back!</h1>
+          <p class="auth-lead">Log in with your ID and password.</p>
+
+          <p class="notice" id="login-notice" role="status" hidden></p>
+
+          <form class="form" id="login-form" novalidate>
+            <div class="field">
+              <label for="login-id">ID</label>
+              <input id="login-id" name="loginId" type="text" autocomplete="username"
+                     autocapitalize="characters" autocorrect="off" spellcheck="false" required>
+            </div>
+
+            <div class="field">
+              <label for="login-password">Password</label>
+              <div class="input-group">
+                <input id="login-password" name="password" type="password"
+                       autocomplete="current-password" required>
+                <button type="button" class="input-addon" data-toggle-password="login-password"
+                        aria-label="Show password" aria-pressed="false">
+                  <span class="icon-slot" data-icon="eye" data-size="18" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-row form-row-end">
+              <button type="button" class="link-btn" id="forgot-password-btn">Forgot password?</button>
+            </div>
+
+            <p class="form-error" id="login-error" role="alert" hidden></p>
+            <button type="submit" class="btn btn-primary btn-block" id="login-submit">Log in</button>
+          </form>
+
+          <p class="auth-switch">New here?
+            <button type="button" class="link-btn" data-show-panel="register">Register</button>
+          </p>
+        </div>
+
+        <!-- REGISTER (students only) -->
+        <div class="auth-panel" id="panel-register" data-panel="register" hidden>
+          <h1 class="auth-title">Create your account</h1>
+          <p class="auth-lead">Your Student ID is generated for you when you register.</p>
+
+          <form class="form" id="register-form" novalidate>
+            <div class="field">
+              <label for="reg-name">Full name</label>
+              <input id="reg-name" name="name" type="text" autocomplete="name" dir="auto" required>
+            </div>
+
+            <div class="field">
+              <label for="reg-mobile">Mobile number</label>
+              <input id="reg-mobile" name="mobile" type="tel" inputmode="numeric"
+                     autocomplete="tel" maxlength="16" aria-describedby="reg-mobile-hint" required>
+              <p class="field-hint" id="reg-mobile-hint">Please enter a WhatsApp-enabled number.</p>
+            </div>
+
+            <div class="field">
+              <label for="reg-parent-mobile">Parent mobile number</label>
+              <input id="reg-parent-mobile" name="parentMobile" type="tel" inputmode="numeric"
+                     autocomplete="off" maxlength="16" aria-describedby="reg-parent-hint" required>
+              <p class="field-hint" id="reg-parent-hint">Please enter a WhatsApp-enabled number. Results are sent to this number.</p>
+            </div>
+
+            <div class="field">
+              <label for="reg-email">Email <span class="label-note">(optional)</span></label>
+              <input id="reg-email" name="email" type="email" autocomplete="email"
+                     autocapitalize="none" spellcheck="false">
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="reg-gender">Gender</label>
+                <select id="reg-gender" name="gender" required>
+                  <option value="" selected disabled>Select</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="reg-grade">Grade</label>
+                <select id="reg-grade" name="grade" data-options="grades" required>
+                  <option value="" selected disabled>Select</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="reg-subject">Subject</label>
+              <select id="reg-subject" name="subject" data-options="subjects" required>
+                <option value="" selected disabled>Select</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="reg-password">Password</label>
+              <div class="input-group">
+                <input id="reg-password" name="password" type="password"
+                       autocomplete="new-password" minlength="6" aria-describedby="reg-password-hint" required>
+                <button type="button" class="input-addon" data-toggle-password="reg-password"
+                        aria-label="Show password" aria-pressed="false">
+                  <span class="icon-slot" data-icon="eye" data-size="18" aria-hidden="true"></span>
+                </button>
+              </div>
+              <p class="field-hint" id="reg-password-hint">At least 6 characters. Write it down — staff must reset it for you if you forget it.</p>
+            </div>
+
+            <div class="field">
+              <label for="reg-password-confirm">Confirm password</label>
+              <div class="input-group">
+                <input id="reg-password-confirm" name="passwordConfirm" type="password"
+                       autocomplete="new-password" required>
+                <button type="button" class="input-addon" data-toggle-password="reg-password-confirm"
+                        aria-label="Show password" aria-pressed="false">
+                  <span class="icon-slot" data-icon="eye" data-size="18" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+
+            <p class="form-error" id="register-error" role="alert" hidden></p>
+            <button type="submit" class="btn btn-primary btn-block" id="register-submit">Create Account</button>
+          </form>
+
+          <p class="auth-switch">Already registered?
+            <button type="button" class="link-btn" data-show-panel="login">Log in</button>
+          </p>
+        </div>
+
+        <!-- PENDING APPROVAL (after registering) -->
+        <div class="auth-panel" id="panel-pending" data-panel="pending" hidden>
+          <span class="status-badge status-badge-success" aria-hidden="true">
+            <span class="icon-slot" data-icon="check-circle" data-size="36"></span>
+          </span>
+          <h1 class="auth-title">Account created</h1>
+          <p class="auth-lead">The academy needs to approve your account before you can log in. This usually doesn't take long.</p>
+
+          <div class="id-card">
+            <p class="id-card-label">Your Student ID</p>
+            <p class="id-card-value" id="pending-login-id" dir="ltr"></p>
+            <button type="button" class="btn btn-secondary btn-sm" id="copy-login-id-btn">
+              <span class="icon-slot" data-icon="copy" data-size="16" aria-hidden="true"></span>
+              Copy ID
+            </button>
+          </div>
+          <p class="auth-note">Save this ID. You will need it, with your password, to log in.</p>
+
+          <button type="button" class="btn btn-primary btn-block" data-show-panel="login">Go to log in</button>
+        </div>
+
+      </main>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       3. STUDENT APP
+       ========================================================================== -->
+  <div id="view-student" class="view view-student" hidden>
+
+    <header class="app-header" id="student-header">
+      <div class="app-header-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+          <span class="brand-name">Code Craft</span>
+        </div>
+
+        <div class="header-actions">
+          <button type="button" class="icon-btn" id="notif-btn" aria-label="Notifications" aria-haspopup="dialog">
+            <span class="icon-slot" data-icon="bell" data-size="22" aria-hidden="true"></span>
+            <span class="notif-badge" id="notif-badge" hidden>0</span>
+          </button>
+          <!-- main.js puts the avatar (blue for male, pink for female) inside -->
+          <button type="button" class="avatar-btn" id="profile-btn" data-nav="profile" aria-label="Open profile"></button>
+        </div>
+      </div>
+    </header>
+
+    <nav class="app-nav" id="student-nav" aria-label="Main">
+      <button type="button" class="nav-item" data-nav="home">
+        <span class="icon-slot" data-icon="home" data-size="22" aria-hidden="true"></span>
+        <span class="nav-label">Home</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="results">
+        <span class="icon-slot" data-icon="results" data-size="22" aria-hidden="true"></span>
+        <span class="nav-label">Results</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="ranking">
+        <span class="icon-slot" data-icon="ranking" data-size="22" aria-hidden="true"></span>
+        <span class="nav-label">Ranking</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="report">
+        <span class="icon-slot" data-icon="report" data-size="22" aria-hidden="true"></span>
+        <span class="nav-label">Report</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="homework">
+        <span class="icon-slot" data-icon="homework" data-size="22" aria-hidden="true"></span>
+        <span class="nav-label">Homework</span>
+      </button>
+      <button type="button" class="nav-item" data-nav="lessons">
+        <span class="icon-slot" data-icon="lessons" data-size="22" aria-hidden="true"></span>
+        <span class="nav-label">Lessons</span>
+      </button>
+    </nav>
+
+    <main class="app-main" id="student-main">
+
+      <section class="screen" id="screen-home" data-screen="home" tabindex="-1" hidden></section>
+
+      <!-- EXAM — full-focus screen. The structure is fixed, so exam-engine.js only
+           fills these elements (no re-rendering of the whole screen each second). -->
+      <section class="screen screen-exam" id="screen-exam" data-screen="exam" tabindex="-1" hidden>
+        <div class="exam-shell">
+
+          <header class="exam-bar">
+            <div class="exam-bar-main">
+              <p class="exam-title" id="exam-title" dir="auto"></p>
+              <p class="exam-counter" id="exam-counter"></p>
+            </div>
+            <div class="exam-timer" id="exam-timer" role="timer">
+              <span class="sr-only">Time remaining</span>
+              <span id="exam-timer-text">00:00</span>
+            </div>
+          </header>
+
+          <div class="exam-progress" id="exam-progress" role="progressbar"
+               aria-label="Exam progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="exam-progress-fill" id="exam-progress-fill"></span>
+          </div>
+
+          <p class="exam-time-warning" id="exam-time-warning" role="alert" hidden></p>
+
+          <nav class="exam-navigator" id="exam-navigator" aria-label="Questions"></nav>
+
+          <article class="exam-card" id="exam-card">
+            <p class="exam-kind" id="exam-kind"></p>
+            <h2 class="exam-question" id="exam-question" dir="auto"></h2>
+            <div class="exam-answers" id="exam-answers"></div>
+          </article>
+
+          <div class="exam-actions">
+            <button type="button" class="btn btn-ghost" id="exam-mark" aria-pressed="false">
+              <span class="icon-slot" data-icon="bookmark" data-size="18" aria-hidden="true"></span>
+              <span id="exam-mark-label">Mark for review</span>
+            </button>
+            <div class="exam-actions-nav">
+              <button type="button" class="btn btn-secondary" id="exam-back">
+                <span class="icon-slot" data-icon="chevron-left" data-size="18" aria-hidden="true"></span>
+                Back
+              </button>
+              <button type="button" class="btn btn-primary" id="exam-next">
+                Next
+                <span class="icon-slot" data-icon="chevron-right" data-size="18" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="btn btn-primary" id="exam-submit" hidden>Submit exam</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="screen" id="screen-result" data-screen="result" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-results" data-screen="results" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-review" data-screen="review" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-ranking" data-screen="ranking" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-report" data-screen="report" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-profile" data-screen="profile" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-homework" data-screen="homework" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-lessons" data-screen="lessons" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-lesson" data-screen="lesson" tabindex="-1" hidden></section>
+
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       4. STAFF APP — admin, teacher and secretary share these screens
+       Only "Staff accounts" is admin-only (data-admin-only).
+       ========================================================================== -->
+  <div id="view-staff" class="view view-staff" hidden>
+
+    <aside class="staff-sidebar" id="staff-sidebar">
+      <div class="staff-sidebar-head">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
+          <span class="brand-name">Code Craft</span>
+        </div>
+        <button type="button" class="icon-btn staff-menu-btn" id="staff-menu-btn"
+                aria-label="Open menu" aria-expanded="false" aria-controls="staff-nav">
+          <span class="icon-slot" data-icon="menu" data-size="22" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <nav class="staff-nav" id="staff-nav" aria-label="Staff">
+        <button type="button" class="nav-item" data-nav="staff-dashboard">
+          <span class="icon-slot" data-icon="dashboard" data-size="20" aria-hidden="true"></span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="staff-students">
+          <span class="icon-slot" data-icon="users" data-size="20" aria-hidden="true"></span>
+          <span class="nav-label">Students</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="staff-exams">
+          <span class="icon-slot" data-icon="report" data-size="20" aria-hidden="true"></span>
+          <span class="nav-label">Exams</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="staff-grading">
+          <span class="icon-slot" data-icon="pencil" data-size="20" aria-hidden="true"></span>
+          <span class="nav-label">Grading</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="staff-homework">
+          <span class="icon-slot" data-icon="homework" data-size="20" aria-hidden="true"></span>
+          <span class="nav-label">Homework</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="staff-lessons">
+          <span class="icon-slot" data-icon="lessons" data-size="20" aria-hidden="true"></span>
+          <span class="nav-label">Lessons</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="staff-accounts" data-admin-only hidden>
+          <span class="icon-slot" data-icon="shield" data-size="20" aria-hidden="true"></span>
+          <span class="nav-label">Staff accounts</span>
+        </button>
+      </nav>
+
+      <div class="staff-user">
+        <div class="staff-user-info">
+          <p class="staff-user-name" id="staff-user-name"></p>
+          <p class="staff-user-role" id="staff-user-role"></p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="staff-logout-btn">
+          <span class="icon-slot" data-icon="logout" data-size="16" aria-hidden="true"></span>
+          Log out
+        </button>
+      </div>
+    </aside>
+
+    <main class="staff-main" id="staff-main">
+      <section class="screen" id="screen-staff-dashboard" data-screen="staff-dashboard" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-students" data-screen="staff-students" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-student" data-screen="staff-student" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-exams" data-screen="staff-exams" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-exam-builder" data-screen="staff-exam-builder" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-exam-detail" data-screen="staff-exam-detail" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-grading" data-screen="staff-grading" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-grade" data-screen="staff-grade" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-homework" data-screen="staff-homework" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-lessons" data-screen="staff-lessons" tabindex="-1" hidden></section>
+      <section class="screen" id="screen-staff-accounts" data-screen="staff-accounts" tabindex="-1" hidden></section>
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       FOOTER — shown at the bottom of every page (filled by renderFooter())
+       ========================================================================== -->
+  <footer class="site-footer" id="site-footer" aria-label="Site footer"></footer>
+
+  <script type="module" src="js/main.js"></script>
+  
+</body>
+</html>
